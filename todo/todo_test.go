@@ -1,6 +1,8 @@
 package todo
 
 import (
+	"fmt"
+	"os"
 	"testing"
 	"time"
 
@@ -134,6 +136,61 @@ func TestDelete(t *testing.T) {
 					prev = curr
 					curr = nil
 				}
+			}
+		})
+	}
+}
+
+func TestSaveGet(t *testing.T) {
+	testCases := []struct {
+		testName string
+		filename string
+		toSave   List
+		err      error
+	}{
+		{
+			testName: "Empty List",
+			filename: "data.json",
+			toSave:   List{},
+			err:      nil,
+		},
+		{
+			testName: "List With 2 Empty Items",
+			filename: "data.json",
+			toSave:   List{item{}, item{}},
+			err:      nil,
+		},
+		{
+			testName: "List With 1 Valid Item",
+			filename: "data.json",
+			toSave:   List{item{Task: "item1"}},
+			err:      nil,
+		},
+		{
+			testName: "List With 1 Valid Item (Empty Filename)",
+			filename: "",
+			toSave:   List{item{Task: "item1"}},
+			err:      fmt.Errorf("open : no such file or directory"),
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.testName, func(t *testing.T) {
+			err := testCase.toSave.Save(testCase.filename)
+			defer func() {
+				os.Remove(testCase.filename)
+			}()
+
+			if testCase.err != nil {
+				assert.EqualError(t, err, testCase.err.Error())
+			} else {
+				toGet := List{}
+
+				err := toGet.Get(testCase.filename)
+				assert.Nil(t, err)
+
+				assertLists(t, toGet, testCase.toSave, time.Millisecond, time.Millisecond)
+
 			}
 		})
 	}

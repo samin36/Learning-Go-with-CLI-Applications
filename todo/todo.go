@@ -3,7 +3,9 @@
 package todo
 
 import (
+	"encoding/json"
 	"fmt"
+	"os"
 	"time"
 )
 
@@ -83,4 +85,28 @@ func (l *List) Delete(itemNum int) error {
 	*l = append(list[:index], list[index+1:]...)
 
 	return nil
+}
+
+// Save method encodes the List as JSON and saves it
+// using the provided filename
+func (l *List) Save(filename string) error {
+	js, err := json.Marshal(l)
+
+	if err != nil {
+		return err
+	}
+
+	return os.WriteFile(filename, js, 0644)
+}
+
+// Open the file specified by the provided filename, decode
+// the JSON data, and parse it into a List
+func (l *List) Get(filename string) error {
+	js, err := os.ReadFile(filename)
+
+	if err != nil {
+		return err
+	}
+
+	return json.Unmarshal(js, l)
 }
