@@ -161,9 +161,9 @@ func TestSaveGet(t *testing.T) {
 			err:      nil,
 		},
 		{
-			testName: "List With 1 Valid Item",
+			testName: "List With 2 Valid Items",
 			filename: "data.json",
-			toSave:   List{item{Task: "item1"}},
+			toSave:   List{item{Task: "item1"}, item{Task: "item2"}},
 			err:      nil,
 		},
 		{
@@ -190,7 +190,6 @@ func TestSaveGet(t *testing.T) {
 				assert.Nil(t, err)
 
 				assertLists(t, toGet, testCase.toSave, time.Millisecond, time.Millisecond)
-
 			}
 		})
 	}

@@ -4,6 +4,7 @@ package todo
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"time"
@@ -105,6 +106,9 @@ func (l *List) Get(filename string) error {
 	js, err := os.ReadFile(filename)
 
 	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil
+		}
 		return err
 	}
 
