@@ -6,15 +6,29 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
-	"strings"
 	"testing"
+	"todo"
 
 	"github.com/stretchr/testify/assert"
 )
 
+type Cmd struct {
+	Args []string
+	Err  error
+	Out  string
+}
+
 var (
 	binName  = "todo"
 	filename = ".todo.json"
+)
+
+const (
+	LIST     = "-list"
+	ADD      = "-task"
+	COMPLETE = "-complete"
+
+	TASKNAME = "item1"
 )
 
 func TestMain(m *testing.M) {
@@ -43,8 +57,6 @@ func TestMain(m *testing.M) {
 }
 
 func TestTodoCli(t *testing.T) {
-	task := "test task number 1"
-
 	dir, err := os.Getwd()
 	if err != nil {
 		t.Fatal(err)
@@ -52,22 +64,60 @@ func TestTodoCli(t *testing.T) {
 
 	cmdPath := filepath.Join(dir, binName)
 
-	t.Run("AddNewTask", func(t *testing.T) {
-		cmd := exec.Command(cmdPath, strings.Split(task, " ")...)
+	testCases := []struct {
+		testName string
+		cmds     []Cmd
+	}{
+		{
+			testName: "Add;List;Complete;List",
+			cmds: []Cmd{
+				{Args: []string{ADD, TASKNAME}, Err: nil, Out: ""},
+				{Args: []string{LIST}, Err: nil, Out: TASKNAME + "\n"},
+				{Args: []string{COMPLETE, "1"}, Err: nil, Out: ""},
+				{Args: []string{LIST}, Err: nil, Out: ""},
+			},
+		},
+		{
+			testName: "List",
+			cmds: []Cmd{
+				{Args: []string{LIST}, Err: nil, Out: ""},
+			},
+		},
+		{
+			testName: "Complete",
+			cmds: []Cmd{
+				{Args: []string{COMPLETE, "1"}, Err: fmt.Errorf("exit status 1"), Out: todo.ErrItemNotFound.Errorf(1).Error() + "\n"},
+			},
+		},
+		{
+			testName: "Add;Complete;Complete",
+			cmds: []Cmd{
+				{Args: []string{ADD, TASKNAME}, Err: nil, Out: ""},
+				{Args: []string{COMPLETE, "1"}, Err: nil, Out: ""},
+				{Args: []string{COMPLETE, "1"}, Err: fmt.Errorf("exit status 1"), Out: todo.ErrItemAlreadyCompleted.Errorf(1).Error() + "\n"},
+			},
+		},
+	}
 
-		if err := cmd.Run(); err != nil {
-			t.Fatal(err)
-		}
-	})
+	for _, testCase := range testCases {
+		t.Run(testCase.testName, func(t *testing.T) {
+			cmds := testCase.cmds
 
-	t.Run("ListTasks", func(t *testing.T) {
-		cmd := exec.Command(cmdPath)
+			for i, cmd := range cmds {
+				actual_cmd := exec.Command(cmdPath, cmd.Args...)
 
-		out, err := cmd.CombinedOutput()
-		if err != nil {
-			t.Fatal(err)
-		}
+				out, err := actual_cmd.CombinedOutput()
+				defer os.Remove(filename)
 
-		assert.Equal(t, task+"\n", string(out))
-	})
+				if cmd.Err == nil {
+					assert.Nil(t, err, "Err")
+				} else {
+					assert.EqualError(t, err, cmd.Err.Error(), "Err")
+				}
+
+				assert.Equal(t, cmd.Out, string(out), fmt.Sprintf("cmd #%d: %q", i+1, cmd))
+			}
+
+		})
+	}
 }
