@@ -2,6 +2,7 @@ package main_test
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -28,7 +29,8 @@ const (
 	ADD      = "-task"
 	COMPLETE = "-complete"
 
-	TASKNAME = "item1"
+	TASKNAME1 = "item1"
+	TASKNAME2 = "item2"
 )
 
 func TestMain(m *testing.M) {
@@ -71,10 +73,10 @@ func TestTodoCli(t *testing.T) {
 		{
 			testName: "Add;List;Complete;List",
 			cmds: []Cmd{
-				{Args: []string{ADD, TASKNAME}, Err: nil, Out: ""},
-				{Args: []string{LIST}, Err: nil, Out: format(1, TASKNAME, false, true)},
+				{Args: []string{ADD, TASKNAME1}, Err: nil, Out: ""},
+				{Args: []string{LIST}, Err: nil, Out: format(1, TASKNAME1, false, true)},
 				{Args: []string{COMPLETE, "1"}, Err: nil, Out: ""},
-				{Args: []string{LIST}, Err: nil, Out: format(1, TASKNAME, true, true)},
+				{Args: []string{LIST}, Err: nil, Out: format(1, TASKNAME1, true, true)},
 			},
 		},
 		{
@@ -92,11 +94,11 @@ func TestTodoCli(t *testing.T) {
 		{
 			testName: "Add1;Complete1;List;Add2;List;Complete1",
 			cmds: []Cmd{
-				{Args: []string{ADD, TASKNAME}, Err: nil, Out: ""},
+				{Args: []string{ADD, TASKNAME1}, Err: nil, Out: ""},
 				{Args: []string{COMPLETE, "1"}, Err: nil, Out: ""},
-				{Args: []string{LIST}, Err: nil, Out: format(1, TASKNAME, true, true)},
-				{Args: []string{ADD, TASKNAME}, Err: nil, Out: ""},
-				{Args: []string{LIST}, Err: nil, Out: format(1, TASKNAME, true, false) + "\n" + format(2, TASKNAME, false, true)},
+				{Args: []string{LIST}, Err: nil, Out: format(1, TASKNAME1, true, true)},
+				{Args: []string{ADD, "STDIN", TASKNAME2}, Err: nil, Out: ""},
+				{Args: []string{LIST}, Err: nil, Out: format(1, TASKNAME1, true, false) + "\n" + format(2, TASKNAME2, false, true)},
 				{Args: []string{COMPLETE, "1"}, Err: fmt.Errorf("exit status 1"), Out: todo.ErrItemAlreadyCompleted.Errorf(1).Error() + "\n"},
 			},
 		},
@@ -108,6 +110,16 @@ func TestTodoCli(t *testing.T) {
 
 			for i, cmd := range cmds {
 				actual_cmd := exec.Command(cmdPath, cmd.Args...)
+
+				if cmd.Args[0] == ADD && cmd.Args[1] == "STDIN" {
+					actual_cmd = exec.Command(cmdPath, cmd.Args[:2]...)
+					cmdStdin, err := actual_cmd.StdinPipe()
+					assert.Nil(t, err)
+
+					_, err = io.WriteString(cmdStdin, cmd.Args[2])
+					assert.Nil(t, err)
+					cmdStdin.Close()
+				}
 
 				out, err := actual_cmd.CombinedOutput()
 				defer os.Remove(filename)
@@ -125,7 +137,7 @@ func TestTodoCli(t *testing.T) {
 	}
 }
 
-func format(itemNum int, taskName string, completed, appendNewLines bool) string {
+func format(itemNum int, TASKNAME1 string, completed, appendNewLines bool) string {
 	prefix := "[ ]"
 	if completed {
 		prefix = "[X]"
@@ -136,5 +148,5 @@ func format(itemNum int, taskName string, completed, appendNewLines bool) string
 		newLines = ""
 	}
 
-	return fmt.Sprintf("%s %d: %s%s", prefix, itemNum, taskName, newLines)
+	return fmt.Sprintf("%s %d: %s%s", prefix, itemNum, TASKNAME1, newLines)
 }

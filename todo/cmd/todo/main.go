@@ -1,8 +1,10 @@
 package main
 
 import (
+	"bufio"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"todo"
 )
@@ -19,11 +21,12 @@ func (ce ConstError) Error() string {
 // Errors
 const (
 	ErrInvalidOption = ConstError("invalid option provided")
+	ErrMissingValue  = ConstError("value missing")
 )
 
 func main() {
 	// Parse the command line flags
-	task := flag.String("task", "", "Task to be added in the ToDo list")
+	task := flag.String("task", "", "Task to be added in the ToDo list. Specify 'STDIN' to supply task name using stdin")
 	list := flag.Bool("list", false, "List all tasks")
 	complete := flag.Int("complete", 0, "Item to be completed")
 	flag.Parse()
@@ -36,7 +39,7 @@ func main() {
 	}
 
 	// Read any existing items from the file
-	Exit(l.Get(todoFilename))
+	exit(l.Get(todoFilename))
 
 	// Parse the args
 	switch {
@@ -44,23 +47,49 @@ func main() {
 		// List current todo items
 		fmt.Println(l)
 	case *complete > 0:
-		Exit(l.Complete(*complete))
+		exit(l.Complete(*complete))
 
 		// Save the list
-		Exit(l.Save(todoFilename))
+		exit(l.Save(todoFilename))
+	case *task == "STDIN":
+		taskName, err := getTask(os.Stdin)
+
+		if err != nil {
+			exit(err)
+		}
+
+		l.Add(taskName)
+
+		// Save the list
+		exit(l.Save(todoFilename))
 	case len(*task) > 0:
 		l.Add(*task)
 
 		// Save the list
-		Exit(l.Save(todoFilename))
+		exit(l.Save(todoFilename))
 	default:
-		Exit(ErrInvalidOption)
+		exit(ErrInvalidOption)
 	}
 }
 
-func Exit(err error) {
+func exit(err error) {
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
+	}
+}
+
+func getTask(r io.Reader) (string, error) {
+	s := bufio.NewScanner(r)
+	s.Scan()
+
+	if err := s.Err(); err != nil {
+		return "", err
+	}
+
+	if text := s.Text(); len(text) == 0 {
+		return "", ErrMissingValue
+	} else {
+		return text, nil
 	}
 }
