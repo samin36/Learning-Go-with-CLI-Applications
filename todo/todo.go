@@ -114,3 +114,18 @@ func (l *List) Get(filename string) error {
 
 	return json.Unmarshal(js, l)
 }
+
+//String prints out a formatted list by implementing the
+// fmt.Stringer interface
+func (l *List) String() (formatted string) {
+	for itemNum, item := range *l {
+		prefix := "[ ] "
+		if item.Done {
+			prefix = "[X] "
+		}
+
+		formatted += fmt.Sprintf("%s%d: %s\n", prefix, itemNum+1, item.Task)
+	}
+
+	return formatted
+}

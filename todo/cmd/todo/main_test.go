@@ -72,15 +72,15 @@ func TestTodoCli(t *testing.T) {
 			testName: "Add;List;Complete;List",
 			cmds: []Cmd{
 				{Args: []string{ADD, TASKNAME}, Err: nil, Out: ""},
-				{Args: []string{LIST}, Err: nil, Out: TASKNAME + "\n"},
+				{Args: []string{LIST}, Err: nil, Out: format(1, TASKNAME, false, true)},
 				{Args: []string{COMPLETE, "1"}, Err: nil, Out: ""},
-				{Args: []string{LIST}, Err: nil, Out: ""},
+				{Args: []string{LIST}, Err: nil, Out: format(1, TASKNAME, true, true)},
 			},
 		},
 		{
 			testName: "List",
 			cmds: []Cmd{
-				{Args: []string{LIST}, Err: nil, Out: ""},
+				{Args: []string{LIST}, Err: nil, Out: "\n"},
 			},
 		},
 		{
@@ -90,10 +90,13 @@ func TestTodoCli(t *testing.T) {
 			},
 		},
 		{
-			testName: "Add;Complete;Complete",
+			testName: "Add1;Complete1;List;Add2;List;Complete1",
 			cmds: []Cmd{
 				{Args: []string{ADD, TASKNAME}, Err: nil, Out: ""},
 				{Args: []string{COMPLETE, "1"}, Err: nil, Out: ""},
+				{Args: []string{LIST}, Err: nil, Out: format(1, TASKNAME, true, true)},
+				{Args: []string{ADD, TASKNAME}, Err: nil, Out: ""},
+				{Args: []string{LIST}, Err: nil, Out: format(1, TASKNAME, true, false) + "\n" + format(2, TASKNAME, false, true)},
 				{Args: []string{COMPLETE, "1"}, Err: fmt.Errorf("exit status 1"), Out: todo.ErrItemAlreadyCompleted.Errorf(1).Error() + "\n"},
 			},
 		},
@@ -120,4 +123,18 @@ func TestTodoCli(t *testing.T) {
 
 		})
 	}
+}
+
+func format(itemNum int, taskName string, completed, appendNewLines bool) string {
+	prefix := "[ ]"
+	if completed {
+		prefix = "[X]"
+	}
+
+	newLines := "\n\n"
+	if !appendNewLines {
+		newLines = ""
+	}
+
+	return fmt.Sprintf("%s %d: %s%s", prefix, itemNum, taskName, newLines)
 }

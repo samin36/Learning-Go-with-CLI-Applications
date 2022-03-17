@@ -7,8 +7,8 @@ import (
 	"todo"
 )
 
-// Temporarily hardcode the file name
-const todoFilename = ".todo.json"
+// Default file name
+var todoFilename = ".todo.json"
 
 type ConstError string
 
@@ -30,6 +30,11 @@ func main() {
 
 	l := &todo.List{}
 
+	// Get the TODO_FILENAME environment variable
+	if val := os.Getenv("TODO_FILENAME"); len(val) > 0 {
+		todoFilename = val
+	}
+
 	// Read any existing items from the file
 	Exit(l.Get(todoFilename))
 
@@ -37,11 +42,7 @@ func main() {
 	switch {
 	case *list:
 		// List current todo items
-		for _, item := range *l {
-			if !item.Done {
-				fmt.Println(item.Task)
-			}
-		}
+		fmt.Println(l)
 	case *complete > 0:
 		Exit(l.Complete(*complete))
 
