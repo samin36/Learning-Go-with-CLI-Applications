@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"flag"
 	"fmt"
+	"io"
 	"os"
-	"strings"
+	"os/exec"
+	"runtime"
 
 	"github.com/fatih/color"
 	"github.com/microcosm-cc/bluemonday"
@@ -44,6 +46,14 @@ func (ce ConstError) Error() string {
 // define errors
 const (
 	ErrFileNotSpecified = ConstError("Markdown file not specified")
+	ErrOsNotSupported   = ConstError("OS not supported")
+)
+
+// define messages
+type Msg string
+
+const (
+	SaveSuccessMsg = "Successfully saved HTML to %s\n"
 )
 
 func main() {
@@ -56,12 +66,12 @@ func main() {
 		exit(ErrFileNotSpecified)
 	}
 
-	if err := run(*file); err != nil {
+	if err := run(*file, os.Stdout); err != nil {
 		exit(err)
 	}
 }
 
-func run(filename string) error {
+func run(filename string, dest io.Writer) error {
 	// Read the data from the file
 	data, err := os.ReadFile(filename)
 	if err != nil {
@@ -70,18 +80,25 @@ func run(filename string) error {
 
 	htmlData := parseContent(data)
 
-	dotMdIndex := strings.LastIndex(filename, ".md")
-	if dotMdIndex == -1 {
-		dotMdIndex = len(filename)
+	// Create a temporary fiile and check for errors
+	temp, err := os.CreateTemp("", "mdp*.html")
+	if err != nil {
+		return err
 	}
-	outFname := fmt.Sprintf("%s.html", filename[:dotMdIndex])
+	if err := temp.Close(); err != nil {
+		return err
+	}
+
+	outFname := temp.Name()
 	err = saveHTML(outFname, htmlData)
 
 	if err == nil {
-		okColor.Printf("Successfully saved HTML to %s\n", outFname)
+		okColor.Fprintf(dest, SaveSuccessMsg, outFname)
 	}
 
-	return err
+	defer os.Remove(outFname)
+
+	return preview(outFname)
 }
 
 func parseContent(data []byte) []byte {
@@ -109,4 +126,30 @@ func saveHTML(outFname string, htmlData []byte) error {
 func exit(err error) {
 	errColor.Fprintf(os.Stderr, "%s\n", err)
 	os.Exit(1)
+}
+
+func preview(fname string) error {
+	cName := ""
+	cParams := []string{}
+
+	// Define executable based on the OS
+	switch runtime.GOOS {
+	case "linux":
+		cName = "xdg-open"
+	case "windows":
+		cName = "cmd.exe"
+		cParams = append(cParams, "/C", "start")
+	case "darwin":
+		cName = "open"
+	default:
+		return ErrOsNotSupported
+	}
+
+	cParams = append(cParams, fname)
+	cPath, err := exec.LookPath(cName)
+	if err != nil {
+		return err
+	}
+
+	return exec.Command(cPath, cParams...).Run()
 }

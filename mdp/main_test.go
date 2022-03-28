@@ -1,7 +1,9 @@
 package main
 
 import (
+	"bytes"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -9,7 +11,6 @@ import (
 
 const (
 	inputFile  = "./testdata/test1.md"
-	resultFile = "./testdata/test1.html"
 	goldenFile = "./testdata/golden_test1.html"
 )
 
@@ -24,20 +25,28 @@ func TestParseContent(t *testing.T) {
 }
 
 func TestRun(t *testing.T) {
-	if err := run(inputFile); err != nil {
+	var mockStdout bytes.Buffer
+
+	if err := run(inputFile, &mockStdout); err != nil {
 		t.Fatal(err)
 	}
 
-	result := readFile(t, resultFile)
+	saveMsg := mockStdout.String()
+	toIndex := strings.Index(saveMsg, "to")
+	assert.NotEqual(t, -1, toIndex)
+	dotHtmlIndex := strings.Index(saveMsg, ".html")
+	outFname := strings.TrimSpace(saveMsg[toIndex+3 : dotHtmlIndex+5])
+	defer cleanup(outFname)
+
+	result := readFile(t, outFname)
 
 	expected := readFile(t, goldenFile)
 
 	assert.Equal(t, expected, result)
-	cleanup()
 }
 
-func cleanup() {
-	os.Remove(resultFile)
+func cleanup(outFname string) {
+	os.Remove(outFname)
 }
 
 func readFile(t *testing.T, filename string) []byte {
